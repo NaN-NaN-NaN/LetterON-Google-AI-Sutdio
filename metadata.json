@@ -1,0 +1,5 @@
+{
+  "name": "LetterOn-AI-Studio",
+  "description": "An application that allows users to upload photos of physical letters, automatically extracts text, and uses AI to categorize, summarize, and provide actionable suggestions, helping manage physical mail efficiently.",
+  "requestFramePermissions": []
+}
