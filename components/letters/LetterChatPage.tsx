@@ -110,7 +110,7 @@ const LetterChatPage: React.FC = () => {
                         onChange={e => setInput(e.target.value)}
                         onKeyPress={e => e.key === 'Enter' && handleSend()}
                         placeholder={t('chat.inputPlaceholder')}
-                        className="flex-grow p-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                        className="flex-grow p-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary bg-white text-slate-900"
                         disabled={isTyping}
                     />
                     <Button onClick={handleSend} disabled={isTyping || !input.trim()}>Send</Button>

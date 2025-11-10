@@ -15,17 +15,14 @@ interface AddLetterModalProps {
   onLetterAdded: () => void;
 }
 
-type UploadStep = 'upload' | 'analyzing' | 'success' | 'error';
+type UploadStep = 'upload' | 'analyzing' | 'error';
 
 const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLetterAdded }) => {
   const [images, setImages] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [translationLang, setTranslationLang] = useState('');
   const [step, setStep] = useState<UploadStep>('upload');
-  const [newLetterId, setNewLetterId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState('');
-  const [analyzedResult, setAnalyzedResult] = useState<Partial<Letter> | null>(null);
-
 
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -54,6 +51,15 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
       Promise.all(imagePromises).then(setImages);
     }
   };
+  
+  const resetAndClose = () => {
+    setImages([]);
+    setFiles([]);
+    setTranslationLang('');
+    setStep('upload');
+    setUploadError('');
+    onClose();
+  };
 
   const handleSubmit = async () => {
     if (images.length === 0) return;
@@ -62,28 +68,16 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
     
     try {
       const analyzedData = await analyzeLetterContent(images, translationLang || undefined);
-      setAnalyzedResult(analyzedData);
       const letterDataWithImages = { ...analyzedData, images: images };
       const newLetter = await createLetter(letterDataWithImages);
-      setNewLetterId(newLetter.id);
-      setStep('success');
       onLetterAdded();
+      resetAndClose();
+      navigate(`/letter/${newLetter.id}`);
     } catch (error: any) {
       console.error(error);
       setUploadError(error.message || 'Analysis failed. Please try again.');
       setStep('error');
     }
-  };
-  
-  const resetAndClose = () => {
-    setImages([]);
-    setFiles([]);
-    setTranslationLang('');
-    setStep('upload');
-    setNewLetterId(null);
-    setUploadError('');
-    setAnalyzedResult(null);
-    onClose();
   };
 
   const renderContent = () => {
@@ -93,26 +87,6 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
           <div className="text-center py-12">
             <Spinner size="lg" className="mx-auto" />
             <p className="mt-4 text-slate-600">{t('addLetter.analyzing')}</p>
-          </div>
-        );
-      case 'success':
-        return (
-          <div className="text-center py-8">
-            <h3 className="text-xl font-semibold text-green-600">{t('addLetter.success')}</h3>
-            {analyzedResult && (
-                <div className="mt-4 text-left p-4 bg-slate-50 rounded-lg border">
-                    <h4 className="font-bold text-slate-800">{analyzedResult.title}</h4>
-                    <p className="text-sm text-slate-600 mt-2 line-clamp-3">{analyzedResult.ai_summary}</p>
-                    <div className="mt-2 text-xs">
-                        <span className="font-semibold">{t('detail.category')}: </span>
-                        {analyzedResult.category ? t(`category.${analyzedResult.category}`) : 'N/A'}
-                    </div>
-                </div>
-            )}
-            <div className="mt-6 flex justify-center gap-4">
-              <Button onClick={resetAndClose}>{t('addLetter.backToHome')}</Button>
-              <Button variant="secondary" onClick={() => { if(newLetterId) navigate(`/letter/${newLetterId}`); resetAndClose(); }}>{t('addLetter.viewDetails')}</Button>
-            </div>
           </div>
         );
       case 'error':

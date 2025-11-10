@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import { Letter, SenderInfo, LetterCategory, ChatMessage } from "../types";
+import { Letter, SenderInfo, LetterCategory, ChatMessage, ActionStatus } from "../types";
 import { TOP_LANGUAGES } from "../constants";
 
 // This is a placeholder for the API key.
@@ -91,7 +91,8 @@ export const analyzeLetterContent = async (
         return {
             ...MOCK_ANALYSIS_RESULT,
             content: MOCK_LETTER_CONTENT,
-            sent_at: "2025-10-20"
+            sent_at: "2025-10-20",
+            action_status: ActionStatus.WAIT_FOR_ACTION, // Mock data with deadline
         } as any;
     }
 
@@ -202,6 +203,9 @@ export const analyzeLetterContent = async (
             ai_summary: resultJson.ai_summary,
             ai_suggestion: resultJson.ai_suggestion,
             ai_suggestion_action_deadline_date: resultJson.ai_suggestion_action_deadline_date,
+            action_status: resultJson.ai_suggestion_action_deadline_date 
+                ? ActionStatus.WAIT_FOR_ACTION 
+                : ActionStatus.NONE,
             translations: {},
         };
         

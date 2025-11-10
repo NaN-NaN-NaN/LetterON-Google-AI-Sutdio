@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getLetterById, updateLetter, deleteLetter as apiDeleteLetter } from '../../services/mockApi';
 import { translateLetterDetails } from '../../services/geminiService';
-import { Letter, SenderInfo } from '../../types';
+import { Letter, SenderInfo, ActionStatus } from '../../types';
 import { useI18n } from '../../hooks/useI18n';
 import { TOP_LANGUAGES, CATEGORY_OPTIONS } from '../../constants';
 import Spinner from '../ui/Spinner';
@@ -30,6 +30,29 @@ const NoteIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 
 type AnalysisTab = 'summary' | 'translation';
+const ACTION_STATUS_OPTIONS = Object.values(ActionStatus);
+
+const getDeadlineStyles = (deadlineDate: Date | null): string => {
+    if (!deadlineDate) return '';
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const deadline = new Date(deadlineDate);
+    deadline.setHours(0, 0, 0, 0);
+
+    const diffTime = deadline.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+        return 'bg-red-800 text-white'; // Expired
+    }
+    if (diffDays <= 3) {
+        return 'text-red-600 font-bold'; // Approaching
+    }
+    return 'text-status-wait font-bold'; // Default
+};
+
 
 const LetterDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -42,6 +65,8 @@ const LetterDetailPage: React.FC = () => {
     const [isImageModalOpen, setImageModalOpen] = useState(false);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isReminderModalOpen, setReminderModalOpen] = useState(false);
+    const [isDeadlineModalOpen, setDeadlineModalOpen] = useState(false);
+    const [newDeadline, setNewDeadline] = useState('');
     const [isRemoveReminderConfirmOpen, setRemoveReminderConfirmOpen] = useState(false);
     const [isOriginalTextModalOpen, setOriginalTextModalOpen] = useState(false);
     const [isTranslatedTextModalOpen, setTranslatedTextModalOpen] = useState(false);
@@ -90,6 +115,37 @@ const LetterDetailPage: React.FC = () => {
         } catch (error) {
             setLetter(letter); // Revert on failure
             alert('Failed to update letter.');
+        }
+    };
+
+    const handleStatusChange = (newStatus: ActionStatus) => {
+        if (!letter) return;
+        if (newStatus === ActionStatus.WAIT_FOR_ACTION && !letter.ai_suggestion_action_deadline_date) {
+            setDeadlineModalOpen(true);
+        } else {
+            handleUpdate('action_status', newStatus);
+        }
+    };
+    
+    const handleSetDeadlineAndStatus = async () => {
+        if (!letter || !newDeadline) return;
+        setLetter(prev => prev ? {
+            ...prev,
+            action_status: ActionStatus.WAIT_FOR_ACTION,
+            ai_suggestion_action_deadline_date: newDeadline
+        } : null);
+
+        try {
+            await updateLetter(letter.id, {
+                action_status: ActionStatus.WAIT_FOR_ACTION,
+                ai_suggestion_action_deadline_date: newDeadline
+            });
+        } catch (error) {
+            setLetter(letter); // Revert
+            alert('Failed to update status and deadline.');
+        } finally {
+            setDeadlineModalOpen(false);
+            setNewDeadline('');
         }
     };
 
@@ -170,95 +226,135 @@ const LetterDetailPage: React.FC = () => {
     
     const deadlineDate = letter?.ai_suggestion_action_deadline_date ? new Date(letter.ai_suggestion_action_deadline_date) : null;
     const isDeadlineValid = deadlineDate && !isNaN(deadlineDate.getTime());
+    const deadlineStyle = getDeadlineStyles(deadlineDate);
 
 
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner size="lg" /></div>;
     if (error || !letter) return <div className="text-center text-red-500">{error || 'Letter not found.'}</div>;
 
     return (
-        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg pb-28 md:pb-8">
-            <Link to="/" className="inline-block text-sm text-slate-500 hover:text-slate-700 hover:underline mb-4">{t('detail.backToList')}</Link>
-            {/* Header */}
-            <header className="pb-6 border-b border-slate-200">
-                <div className="flex justify-between items-start gap-4">
-                    <div className="flex-grow">
-                        <select
-                            value={letter.category}
-                            onChange={(e) => handleUpdate('category', e.target.value)}
-                            className="bg-slate-100 text-slate-700 font-semibold text-sm rounded-full px-3 py-1 border-2 border-transparent focus:outline-none focus:border-primary focus:ring-primary transition-colors"
-                            aria-label="Letter category"
-                        >
-                            {CATEGORY_OPTIONS.map(cat => (
-                                <option key={cat} value={cat}>{t(`category.${cat}`)}</option>
-                            ))}
-                        </select>
-
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-3">{letter.title}</h1>
-                         <div className="mt-4">
-                             <SenderInfoBlock info={letter.sender_info} />
-                         </div>
-                    </div>
-                    <div className="flex items-center space-x-4 flex-shrink-0">
-                        <StarIcon filled={letter.starred} onClick={() => handleUpdate('starred', !letter.starred)} />
-                        <BellIcon active={letter.reminder_active} onClick={() => letter.reminder_active ? setRemoveReminderConfirmOpen(true) : setReminderModalOpen(true)} className="h-6 w-6 cursor-pointer" />
-                        <TrashIcon onClick={() => setDeleteConfirmOpen(true)} />
-                    </div>
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
-                    {isDeadlineValid && (
-                         <span className="font-bold bg-red-100 text-red-800 rounded-md px-2 py-1 text-xs sm:text-sm">
-                            {t('detail.deadline')}: {formatDate(letter.ai_suggestion_action_deadline_date!)}
-                        </span>
-                    )}
-                    <span className="font-medium bg-slate-100 rounded-md px-2 py-1 text-xs sm:text-sm">{t('letter.sentOn')}: {formatDate(letter.sent_at)}</span>
-                    <span className="font-medium bg-slate-100 rounded-md px-2 py-1 text-xs sm:text-sm">{t('letter.uploadedOn')}: {formatDate(letter.created_at)}</span>
-                    {letter.images && letter.images.length > 0 && (
-                         <button onClick={() => setImageModalOpen(true)} className="text-primary font-semibold text-xs sm:text-sm">{t('detail.originalImages')}</button>
-                    )}
-                </div>
-                <div className="mt-4">
-                    <label htmlFor="note-input" className="sr-only">{t('detail.note')}</label>
-                    <div className="relative">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                            <NoteIcon className="h-5 w-5 text-slate-400" />
+        <div>
+            <div className="md:hidden">
+                <Link to="/" className="inline-block text-sm text-slate-500 hover:text-slate-700 hover:underline mb-4">{t('detail.backToList')}</Link>
+            </div>
+            <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg pb-28 md:pb-8">
+                {/* Header */}
+                <header className="pb-6 border-b border-slate-200">
+                    {/* Desktop Header */}
+                    <div className="hidden md:block">
+                        <div className="flex justify-between items-start">
+                             <Link to="/" className="inline-block text-sm text-slate-500 hover:text-slate-700 hover:underline mb-4">{t('detail.backToList')}</Link>
+                             <div className="flex items-center space-x-4 flex-shrink-0">
+                                <StarIcon filled={letter.starred} onClick={() => handleUpdate('starred', !letter.starred)} />
+                                <BellIcon active={letter.reminder_active} onClick={() => letter.reminder_active ? setRemoveReminderConfirmOpen(true) : setReminderModalOpen(true)} className="h-6 w-6 cursor-pointer" />
+                                <TrashIcon onClick={() => setDeleteConfirmOpen(true)} />
+                            </div>
                         </div>
-                        <input
-                            id="note-input"
-                            type="text"
-                            value={currentNote}
-                            onChange={(e) => setCurrentNote(e.target.value)}
-                            onBlur={handleNoteSave}
-                            placeholder={t('detail.addNote')}
-                            className="w-full pl-10 p-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary text-slate-900 bg-white"
-                        />
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">{letter.title}</h1>
                     </div>
-                </div>
-            </header>
-            
-            <div className="mt-6">
-                <AnalysisSection 
-                    letter={letter}
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
-                    isTranslating={isTranslating}
-                    targetLang={targetLang}
-                    setTargetLang={setTargetLang}
-                    handleTranslate={handleTranslate}
-                    onShowOriginal={() => setOriginalTextModalOpen(true)}
-                    onShowTranslatedOriginal={() => setTranslatedTextModalOpen(true)}
-                />
-            </div>
+                     {/* Mobile Header */}
+                    <div className="md:hidden">
+                        <div className="flex justify-between items-start">
+                            <h1 className="text-2xl font-bold text-slate-900 flex-grow pr-4">{letter.title}</h1>
+                            <div className="flex items-center space-x-4 flex-shrink-0">
+                                <StarIcon filled={letter.starred} onClick={() => handleUpdate('starred', !letter.starred)} />
+                                <BellIcon active={letter.reminder_active} onClick={() => letter.reminder_active ? setRemoveReminderConfirmOpen(true) : setReminderModalOpen(true)} className="h-6 w-6 cursor-pointer" />
+                                <TrashIcon onClick={() => setDeleteConfirmOpen(true)} />
+                            </div>
+                        </div>
+                    </div>
 
-            {/* Ask AI Button */}
-             <div className="mt-10 pt-6 border-t border-slate-200 text-center hidden md:block">
-                <Button variant="primary" size="lg" onClick={() => navigate(`/letter/${id}/chat`)}>
-                    {t('detail.askAI')}
-                </Button>
-            </div>
-             <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-sm border-t z-30">
-                <Button variant="primary" size="lg" onClick={() => navigate(`/letter/${id}/chat`)} className="w-full">
-                    {t('detail.askAI')}
-                </Button>
+                    <div className="mt-4">
+                        <SenderInfoBlock info={letter.sender_info} />
+                    </div>
+
+                    {/* Metadata Bar */}
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                            <label htmlFor="category-select" className="font-medium text-slate-500">{t('detail.category')}:</label>
+                            <select
+                                id="category-select"
+                                value={letter.category}
+                                onChange={(e) => handleUpdate('category', e.target.value)}
+                                className="bg-slate-100 text-slate-700 font-semibold text-sm rounded-full px-3 py-1 border-2 border-transparent focus:outline-none focus:border-primary focus:ring-primary transition-colors"
+                            >
+                                {CATEGORY_OPTIONS.map(cat => (
+                                    <option key={cat} value={cat}>{t(`category.${cat}`)}</option>
+                                ))}
+                            </select>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <label htmlFor="action-status-select" className="font-medium text-slate-500">{t('detail.actionStatus')}:</label>
+                            <select
+                                id="action-status-select"
+                                value={letter.action_status}
+                                onChange={(e) => handleStatusChange(e.target.value as ActionStatus)}
+                                className="bg-slate-100 text-slate-700 font-semibold text-sm rounded-full px-3 py-1 border-2 border-transparent focus:outline-none focus:border-primary focus:ring-primary transition-colors"
+                            >
+                                {ACTION_STATUS_OPTIONS.map(status => (
+                                    <option key={status} value={status}>{t(`letter.status.${status}`)}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {letter.action_status === ActionStatus.WAIT_FOR_ACTION && isDeadlineValid && (
+                            <span className={`rounded-md px-2 py-1 text-xs sm:text-sm ${deadlineStyle}`}>
+                                {t('detail.deadline')}: {formatDate(letter.ai_suggestion_action_deadline_date!)}
+                            </span>
+                        )}
+                        <div className="flex-grow hidden md:block"></div>
+                        <div className="flex items-center gap-4 text-xs text-slate-500">
+                             {letter.images && letter.images.length > 0 && (
+                                <button onClick={() => setImageModalOpen(true)} className="text-primary font-semibold hover:underline">{t('detail.originalImages')}</button>
+                            )}
+                            <span>{t('letter.sentOn')}: {formatDate(letter.sent_at)}</span>
+                            <span>{t('letter.uploadedOn')}: {formatDate(letter.created_at)}</span>
+                        </div>
+                    </div>
+
+                     <div className="mt-4">
+                        <label htmlFor="note-input" className="sr-only">{t('detail.note')}</label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <NoteIcon className="h-5 w-5 text-slate-400" />
+                            </div>
+                            <input
+                                id="note-input"
+                                type="text"
+                                value={currentNote}
+                                onChange={(e) => setCurrentNote(e.target.value)}
+                                onBlur={handleNoteSave}
+                                placeholder={t('detail.addNote')}
+                                className="w-full pl-10 p-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary text-slate-900 bg-white"
+                            />
+                        </div>
+                    </div>
+                </header>
+                
+                <div className="mt-6">
+                    <AnalysisSection 
+                        letter={letter}
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        isTranslating={isTranslating}
+                        targetLang={targetLang}
+                        setTargetLang={setTargetLang}
+                        handleTranslate={handleTranslate}
+                        onShowOriginal={() => setOriginalTextModalOpen(true)}
+                        onShowTranslatedOriginal={() => setTranslatedTextModalOpen(true)}
+                    />
+                </div>
+
+                {/* Ask AI Button */}
+                <div className="mt-10 pt-6 border-t border-slate-200 text-center hidden md:block">
+                    <Button variant="primary" size="lg" onClick={() => navigate(`/letter/${id}/chat`)}>
+                        {t('detail.askAI')}
+                    </Button>
+                </div>
+                <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-sm border-t z-30">
+                    <Button variant="primary" size="lg" onClick={() => navigate(`/letter/${id}/chat`)} className="w-full">
+                        {t('detail.askAI')}
+                    </Button>
+                </div>
             </div>
 
             {/* Modals */}
@@ -286,6 +382,22 @@ const LetterDetailPage: React.FC = () => {
                     />
                     <div className="pt-2 flex justify-end">
                         <Button onClick={handleSetReminder} disabled={!reminderDate}>{t('reminder.setButton')}</Button>
+                    </div>
+                </div>
+            </Modal>
+            <Modal isOpen={isDeadlineModalOpen} onClose={() => setDeadlineModalOpen(false)} title={t('deadline.title')}>
+                <div className="space-y-4">
+                    <p>This action status requires a deadline. Please set one.</p>
+                    <label htmlFor="deadline-date" className="block text-sm font-medium text-slate-700">{t('deadline.dateLabel')}</label>
+                    <input
+                        id="deadline-date"
+                        type="date"
+                        value={newDeadline}
+                        onChange={(e) => setNewDeadline(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary text-slate-900 bg-white"
+                    />
+                    <div className="pt-2 flex justify-end">
+                        <Button onClick={handleSetDeadlineAndStatus} disabled={!newDeadline}>{t('deadline.setButton')}</Button>
                     </div>
                 </div>
             </Modal>
@@ -422,8 +534,10 @@ const SenderInfoBlock: React.FC<{ info: SenderInfo }> = ({ info }) => {
         <div className="text-xs sm:text-sm space-y-1 text-slate-600">
             <p><strong>{info.name}</strong></p>
             {info.address && <p>{info.address}</p>}
-            {info.email && <p>{info.email}</p>}
-            {info.phone && <p>{info.phone}</p>}
+            <div className="block md:flex md:gap-4">
+              {info.email && <span>{info.email}</span>}
+              {info.phone && <span>{info.phone}</span>}
+            </div>
         </div>
     )
 };

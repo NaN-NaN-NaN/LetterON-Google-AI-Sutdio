@@ -22,6 +22,7 @@ const LetterListPage: React.FC = () => {
     const [filterCategory, setFilterCategory] = useState<LetterCategory | 'all'>('all');
     const [filterStarred, setFilterStarred] = useState(false);
     const [filterReminder, setFilterReminder] = useState(false);
+    const [filterHasNote, setFilterHasNote] = useState(false);
     const [filterSentStart, setFilterSentStart] = useState('');
     const [filterSentEnd, setFilterSentEnd] = useState('');
     const [filterUploadedStart, setFilterUploadedStart] = useState('');
@@ -50,12 +51,14 @@ const LetterListPage: React.FC = () => {
                 return (
                     letter.title.toLowerCase().includes(lowerSearch) ||
                     letter.ai_summary.toLowerCase().includes(lowerSearch) ||
-                    letter.sender_info.name.toLowerCase().includes(lowerSearch)
+                    letter.sender_info.name.toLowerCase().includes(lowerSearch) ||
+                    (letter.note && letter.note.toLowerCase().includes(lowerSearch))
                 );
             })
             .filter(letter => filterCategory === 'all' || letter.category === filterCategory)
             .filter(letter => !filterStarred || letter.starred)
             .filter(letter => !filterReminder || letter.reminder_active)
+            .filter(letter => !filterHasNote || (letter.note && letter.note.trim() !== ''))
             .filter(letter => {
                 if (!filterSentStart && !filterSentEnd) return true;
                 const sentDate = new Date(letter.sent_at);
@@ -73,7 +76,7 @@ const LetterListPage: React.FC = () => {
                 return true;
             })
             .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
-    }, [letters, searchTerm, filterCategory, filterStarred, filterReminder, filterSentStart, filterSentEnd, filterUploadedStart, filterUploadedEnd]);
+    }, [letters, searchTerm, filterCategory, filterStarred, filterReminder, filterHasNote, filterSentStart, filterSentEnd, filterUploadedStart, filterUploadedEnd]);
 
     const clearDateFilter = (filter: 'sent' | 'uploaded') => {
         if (filter === 'sent') {
@@ -121,6 +124,10 @@ const LetterListPage: React.FC = () => {
                             <input type="checkbox" id="reminder" checked={filterReminder} onChange={e => setFilterReminder(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
                             <label htmlFor="reminder" className="text-slate-700 font-medium">{t('letters.filter.reminder')}</label>
                         </div>
+                        <div className="flex items-center space-x-2 bg-slate-100 p-2 rounded-md">
+                            <input type="checkbox" id="hasNote" checked={filterHasNote} onChange={e => setFilterHasNote(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                            <label htmlFor="hasNote" className="text-slate-700 font-medium">{t('letters.filter.hasNote')}</label>
+                        </div>
                     </div>
                 </div>
 
@@ -167,8 +174,8 @@ const LetterListPage: React.FC = () => {
             </div>
 
             {/* Filter Bar */}
-            <div className="bg-white p-4 rounded-xl shadow-sm mb-6 space-y-4">
-                <div className="flex items-center gap-2">
+            <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
+                <div className="flex items-center gap-2 mb-4">
                      <div className="relative flex-grow">
                         <input
                             type="text"
@@ -196,7 +203,7 @@ const LetterListPage: React.FC = () => {
                     </Button>
                 </div>
 
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="flex flex-wrap gap-2">
                     {filterCategory !== 'all' && (
                         <Chip onRemove={() => setFilterCategory('all')}>
                             {t('letters.filter.category')}: {t(`category.${filterCategory}`)}
@@ -210,6 +217,11 @@ const LetterListPage: React.FC = () => {
                     {filterReminder && (
                         <Chip onRemove={() => setFilterReminder(false)}>
                             {t('letters.filter.reminder')}
+                        </Chip>
+                    )}
+                     {filterHasNote && (
+                        <Chip onRemove={() => setFilterHasNote(false)}>
+                            {t('letters.filter.hasNote')}
                         </Chip>
                     )}
                     {(filterSentStart || filterSentEnd) && (
