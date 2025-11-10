@@ -113,11 +113,11 @@ const LetterListPage: React.FC = () => {
                         </select>
                     </div>
                     <div className="space-y-2 pt-2">
-                        <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-md">
+                        <div className="flex items-center space-x-2 bg-slate-100 p-2 rounded-md">
                             <input type="checkbox" id="starred" checked={filterStarred} onChange={e => setFilterStarred(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
                             <label htmlFor="starred" className="text-slate-700 font-medium">{t('letters.filter.starred')}</label>
                         </div>
-                        <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-md">
+                        <div className="flex items-center space-x-2 bg-slate-100 p-2 rounded-md">
                             <input type="checkbox" id="reminder" checked={filterReminder} onChange={e => setFilterReminder(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
                             <label htmlFor="reminder" className="text-slate-700 font-medium">{t('letters.filter.reminder')}</label>
                         </div>
@@ -246,7 +246,7 @@ const LetterListPage: React.FC = () => {
                 onLetterAdded={fetchUserLetters}
             />
 
-            <Modal isOpen={isFilterModalOpen} onClose={() => setFilterModalOpen(false)} title="Advanced Filters">
+            <Modal isOpen={isFilterModalOpen} onClose={() => setFilterModalOpen(false)} title="Advanced Filters" size="xl">
                 <AdvancedFilters />
             </Modal>
         </div>

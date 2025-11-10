@@ -359,7 +359,7 @@ const AnalysisSection: React.FC<{
                              <select
                                 value={targetLang}
                                 onChange={(e) => setTargetLang(e.target.value)}
-                                className="w-full md:w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"
+                                className="w-full md:w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 h-11"
                                 disabled={isTranslating}
                             >
                                 <option value="">Select a language...</option>
@@ -367,7 +367,7 @@ const AnalysisSection: React.FC<{
                                     <option key={lang.code} value={lang.code}>{lang.name}</option>
                                 ))}
                             </select>
-                            <Button onClick={handleTranslate} disabled={isTranslating || !targetLang}>
+                            <Button onClick={handleTranslate} disabled={isTranslating || !targetLang} className="h-11">
                                 {isTranslating ? <Spinner size="sm" /> : t('detail.translateButton')}
                             </Button>
                         </div>

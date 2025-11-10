@@ -39,29 +39,23 @@ const LetterCard: React.FC<LetterCardProps> = ({ letter }) => {
     
     const deadlineDate = letter.ai_suggestion_action_deadline_date ? new Date(letter.ai_suggestion_action_deadline_date) : null;
     const isDeadlineValid = deadlineDate && !isNaN(deadlineDate.getTime());
+    
+    const statusTextColors: { [key in ActionStatus]: string } = {
+        [ActionStatus.NONE]: 'text-status-none',
+        [ActionStatus.WAIT_FOR_ACTION]: 'text-status-wait',
+        [ActionStatus.COMPLETE]: 'text-status-complete',
+        [ActionStatus.CANCELED]: 'text-slate-500',
+    }
 
     return (
         <div 
             onClick={() => navigate(`/letter/${letter.id}`)}
             className="bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow cursor-pointer border border-transparent hover:border-primary-light"
         >
-            <div className="flex justify-between items-start gap-4">
-                <div className="flex-grow min-w-0">
-                    <h2 className="text-base sm:text-lg font-bold text-slate-800 truncate pr-4" title={letter.title}>{letter.title}</h2>
-                    <p className="text-xs sm:text-sm text-slate-600 truncate">{letter.sender_info.name}</p>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-2 line-clamp-2">{letter.ai_summary}</p>
-                </div>
-                <div className="flex items-center space-x-3 flex-shrink-0">
-                    {letter.starred && <StarIcon filled={true} />}
-                    {letter.reminder_active && <BellIcon active={true} />}
-                </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-x-4 gap-y-2">
+            <div className="flex justify-between items-start gap-4 mb-2">
                  <div className="flex items-center gap-2 flex-wrap">
                     <StatusDot status={letter.action_status} />
-                    <span className="px-2 py-0.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-full">
-                        {t(`category.${letter.category}`)}
-                    </span>
+                    <span className={`text-xs font-bold uppercase tracking-wide ${statusTextColors[letter.action_status]}`}>{t(`letter.status.${letter.action_status}`)}</span>
                     {isDeadlineValid && (
                         <span className="flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 rounded-full px-2 py-0.5">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -71,7 +65,23 @@ const LetterCard: React.FC<LetterCardProps> = ({ letter }) => {
                         </span>
                     )}
                 </div>
-                <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center sm:gap-4 text-left sm:text-right w-full sm:w-auto mt-2 sm:mt-0 text-[11px] sm:text-xs">
+                <div className="flex items-center space-x-3 flex-shrink-0">
+                    {letter.starred && <StarIcon filled={true} />}
+                    {letter.reminder_active && <BellIcon active={true} />}
+                </div>
+            </div>
+            
+            <div className="flex-grow min-w-0">
+                 <span className="px-2 py-0.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-full inline-block mb-1">
+                    {t(`category.${letter.category}`)}
+                </span>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 truncate" title={letter.title}>{letter.title}</h2>
+                <p className="text-xs sm:text-sm text-slate-600 truncate">{letter.sender_info.name}</p>
+                <p className="text-xs sm:text-sm text-slate-500 mt-2 line-clamp-2 hidden sm:block">{letter.ai_summary}</p>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-x-4 gap-y-2">
+                <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center sm:gap-4 text-left sm:text-right w-full sm:w-auto text-[11px] sm:text-xs">
                     <div className="w-full sm:w-auto">
                         <span className="font-semibold">{t('letter.sentOn')}:</span> {formatDate(letter.sent_at)}
                     </div>

@@ -1,4 +1,3 @@
-
 import React, { ReactNode } from 'react';
 
 interface ModalProps {
@@ -6,10 +5,18 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   title?: string;
+  size?: 'md' | 'lg' | 'xl' | '3xl';
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title, size = 'md' }) => {
   if (!isOpen) return null;
+
+  const sizeClasses = {
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-3xl',
+    '3xl': 'max-w-5xl',
+  };
 
   return (
     <div
@@ -17,7 +24,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg transform rounded-xl bg-white p-6 shadow-2xl transition-all"
+        className={`relative w-full m-4 ${sizeClasses[size]} transform rounded-xl bg-white p-6 shadow-2xl transition-all`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
