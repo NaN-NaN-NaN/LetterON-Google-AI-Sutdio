@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import type { Chat } from '@google/genai';
 import { getLetterById, getChatHistory, addChatMessage } from '../../services/mockApi';
 import { startChat, sendChatMessage } from '../../services/geminiService';
 import { Letter, ChatMessage } from '../../types';
@@ -18,6 +18,7 @@ const LetterChatPage: React.FC = () => {
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const chatRef = useRef<Chat | null>(null);
 
     useEffect(() => {
         if (!id) return;
@@ -28,7 +29,7 @@ const LetterChatPage: React.FC = () => {
                 const chatHistory = await getChatHistory(id);
                 setLetter(letterData);
                 setMessages(chatHistory);
-                startChat(letterData, chatHistory); // Initialize Gemini chat
+                chatRef.current = startChat(letterData, chatHistory); // Initialize Gemini chat and store in ref
             } catch (err) {
                 setError('Failed to load chat data.');
             } finally {
@@ -48,15 +49,17 @@ const LetterChatPage: React.FC = () => {
 
         const userMessage = await addChatMessage(id, input);
         setMessages(prev => [...prev, userMessage]);
+        const currentInput = input;
         setInput('');
         setIsTyping(true);
 
         try {
-            const aiResponseText = await sendChatMessage(input);
+            const aiResponseText = await sendChatMessage(chatRef.current, currentInput);
             const aiMessage = await addChatMessage(id, aiResponseText, 'assistant');
             setMessages(prev => [...prev, aiMessage]);
-        } catch (err) {
-            const errorMessage = await addChatMessage(id, 'Sorry, I encountered an error.', 'assistant');
+        } catch (err: any) {
+            console.error("Chat send error:", err);
+            const errorMessage = await addChatMessage(id, `Sorry, I encountered an error: ${err.message}`, 'assistant');
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsTyping(false);

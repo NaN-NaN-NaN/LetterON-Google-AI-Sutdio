@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -41,6 +40,7 @@ const RegisterPage: React.FC = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Logo className="justify-center" />
+          <p className="mt-2 text-slate-600">{t('login.slogan')} 🤖</p>
         </div>
         <div className="bg-white p-8 rounded-xl shadow-lg">
           <h2 className="text-2xl font-bold text-center text-slate-800 mb-6">{t('register.title')}</h2>

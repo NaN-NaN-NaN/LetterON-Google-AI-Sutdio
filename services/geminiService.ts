@@ -1,3 +1,5 @@
+
+
 import { GoogleGenAI, Type, Chat } from "@google/genai";
 import { Letter, SenderInfo, LetterCategory, ChatMessage } from "../types";
 import { TOP_LANGUAGES } from "../constants";
@@ -60,46 +62,24 @@ Sincerely,
 City Power & Light
 `;
 
-const responseSchema = {
-    type: Type.OBJECT,
-    properties: {
-        full_text: {
-            type: Type.STRING,
-            description: "The full transcribed text from the letter, preserving line breaks and original language."
-        },
-        title: {
-            type: Type.STRING,
-            description: "A short, descriptive title for the letter, under 10 words."
-        },
-        category: {
-            type: Type.STRING,
-            description: `The category of the letter. Must be one of: ${Object.values(LetterCategory).join(', ')}.`
-        },
-        sender_info: {
-            type: Type.OBJECT,
-            properties: {
-                name: { type: Type.STRING, description: "Sender's name or organization name." },
-                address: { type: Type.STRING, description: "Sender's full address." },
-                phone: { type: Type.STRING, description: "Sender's phone number." },
-                email: { type: Type.STRING, description: "Sender's email address." },
-                sent_at: { type: Type.STRING, description: "Date the letter was sent, in YYYY-MM-DD format." }
-            },
-        },
-        ai_summary: {
-            type: Type.STRING,
-            description: "A concise summary of the letter's main purpose in 2-3 sentences."
-        },
-        ai_suggestion: {
-            type: Type.STRING,
-            description: "A clear, actionable suggestion for the user. e.g., 'Pay €50.00 to IBAN X by YYYY-MM-DD.'"
-        },
-        ai_suggestion_action_deadline_date: {
-            type: Type.STRING,
-            description: "The deadline for the suggested action in YYYY-MM-DD format. Null if no deadline."
-        },
+// FIX: Added a robust JSON parser for Gemini's response, which can sometimes be wrapped in markdown.
+function parseJsonFromGeminiResponse(text: string): any {
+    text = text.trim();
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch && jsonMatch[1]) {
+        try {
+            return JSON.parse(jsonMatch[1]);
+        } catch (error) {
+            console.error("Failed to parse extracted JSON from Gemini response:", error);
+        }
     }
-};
-
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Failed to parse raw text as JSON from Gemini response", error);
+        throw new Error("AI returned an invalid JSON format.");
+    }
+}
 
 export const analyzeLetterContent = async (
     images: string[],
@@ -130,18 +110,73 @@ export const analyzeLetterContent = async (
         };
     });
 
+    const languageName = translationLanguage ? TOP_LANGUAGES.find(l => l.code === translationLanguage)?.name || translationLanguage : '';
+
     const promptText = `
     System Instruction: You are an expert administrative assistant specializing in analyzing official and personal letters from images. Your task is to perform OCR on the images, extract specific information from the transcribed text, and return it in a structured JSON format. The user may be a non-native speaker, so summaries and suggestions should be clear, simple, and direct.
 
     Analyze the content from the provided images and provide all the information requested in the JSON schema.
-    First, transcribe the full text of the letter from the images.
-    Then, based on the transcribed text, fill in the other fields.
+    First, perform OCR to get the full_text.
+    Then, detect the dominant language of the full_text. It's crucial that you generate the 'title', 'ai_summary', and 'ai_suggestion' fields in that same detected language.
     If a piece of information is not present, use an empty string "" or null for dates.
     Dates must be in YYYY-MM-DD format.
-    ${translationLanguage ? `Additionally, provide a translation of the 'title', 'ai_summary', and 'ai_suggestion' fields into ${translationLanguage}. The full_text should remain in its original language.` : ''}
+    ${translationLanguage ? `Additionally, translate the 'full_text', 'ai_summary', and 'ai_suggestion' fields into ${languageName} and provide them in a 'translation' object.` : ''}
     `;
     
     const contents = { parts: [...imageParts, { text: promptText }] };
+
+    const dynamicSchema: any = {
+        type: Type.OBJECT,
+        properties: {
+            full_text: {
+                type: Type.STRING,
+                description: "The full transcribed text from the letter, preserving line breaks and original language."
+            },
+            title: {
+                type: Type.STRING,
+                description: "A short, descriptive title for the letter, under 10 words."
+            },
+            category: {
+                type: Type.STRING,
+                description: `The category of the letter. Must be one of: ${Object.values(LetterCategory).join(', ')}.`
+            },
+            sender_info: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING, description: "Sender's name or organization name." },
+                    address: { type: Type.STRING, description: "Sender's full address." },
+                    phone: { type: Type.STRING, description: "Sender's phone number." },
+                    email: { type: Type.STRING, description: "Sender's email address." },
+                    sent_at: { type: Type.STRING, description: "Date the letter was sent, in YYYY-MM-DD format." }
+                },
+            },
+            ai_summary: {
+                type: Type.STRING,
+                description: "A concise summary of the letter's main purpose in 2-3 sentences."
+            },
+            ai_suggestion: {
+                type: Type.STRING,
+                description: "A clear, actionable suggestion for the user. e.g., 'Pay €50.00 to IBAN X by YYYY-MM-DD.'"
+            },
+            ai_suggestion_action_deadline_date: {
+                type: Type.STRING,
+                description: "The deadline for the suggested action in YYYY-MM-DD format. Null if no deadline."
+            },
+        }
+    };
+
+    if (translationLanguage) {
+        dynamicSchema.properties.translation = {
+            type: Type.OBJECT,
+            description: `Translated content, summary, and suggestion into ${languageName}.`,
+            properties: {
+                content: { type: Type.STRING, description: `The full translated content of the letter.` },
+                summary: { type: Type.STRING, description: `The translated summary.` },
+                suggestion: { type: Type.STRING, description: `The translated suggestion.` },
+            },
+            required: ['content', 'summary', 'suggestion']
+        };
+    }
 
     try {
         const response = await ai.models.generateContent({
@@ -149,23 +184,33 @@ export const analyzeLetterContent = async (
             contents: contents,
             config: {
                 responseMimeType: "application/json",
-                responseSchema: responseSchema,
+                responseSchema: dynamicSchema,
             },
         });
 
-        const resultJson = JSON.parse(response.text);
+        const resultJson = parseJsonFromGeminiResponse(response.text);
+
+        // FIX: Destructure sender_info to separate sent_at for better type safety.
+        const { sent_at, ...senderInfo } = resultJson.sender_info || {};
 
         const letterData: Partial<Letter> = {
             title: resultJson.title,
             content: resultJson.full_text,
             category: resultJson.category as LetterCategory,
-            sender_info: { ...resultJson.sender_info, sent_at: undefined },
-            sent_at: resultJson.sender_info.sent_at,
+            sender_info: senderInfo,
+            sent_at: sent_at,
             ai_summary: resultJson.ai_summary,
             ai_suggestion: resultJson.ai_suggestion,
             ai_suggestion_action_deadline_date: resultJson.ai_suggestion_action_deadline_date,
+            translations: {},
         };
         
+        if (resultJson.translation && translationLanguage) {
+            letterData.translations = {
+                [translationLanguage]: resultJson.translation
+            };
+        }
+
         return letterData;
     } catch (error) {
         console.error("Error analyzing letter with Gemini:", error);
@@ -214,20 +259,17 @@ export const translateLetterDetails = async (
                 responseSchema: translationSchema,
             },
         });
-        return JSON.parse(response.text);
+        return parseJsonFromGeminiResponse(response.text);
     } catch (error) {
         console.error("Error translating details with Gemini:", error);
         throw new Error("Failed to translate details.");
     }
 };
 
-
-let chatInstance: Chat | null = null;
-
-export const startChat = (letter: Letter, history: ChatMessage[]) => {
+export const startChat = (letter: Letter, history: ChatMessage[]): Chat | null => {
     if (!ai) {
         console.log("Using mock chat.");
-        return;
+        return null;
     }
 
     const systemInstruction = `You are a helpful AI assistant. You are having a conversation with a user about a specific letter.
@@ -240,28 +282,28 @@ export const startChat = (letter: Letter, history: ChatMessage[]) => {
     Your previous suggestion was: ${letter.ai_suggestion}.
     Answer the user's questions based on this context and your previous conversation history. Be clear and helpful.`;
     
-    const chatHistory = history.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : msg.role,
-        parts: [{ text: msg.message }]
-    }));
+    const chatHistory = history
+        .filter(msg => msg.role !== 'system') // Filter out system messages from history
+        .map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : msg.role,
+            parts: [{ text: msg.message }]
+        }));
 
-    chatInstance = ai.chats.create({
+    const chatInstance = ai.chats.create({
         model: 'gemini-2.5-flash',
         config: { systemInstruction },
         history: chatHistory,
     });
+    return chatInstance;
 };
 
-export const sendChatMessage = async (message: string): Promise<string> => {
-    if (!chatInstance && !ai) {
+export const sendChatMessage = async (chatInstance: Chat | null, message: string): Promise<string> => {
+    if (!chatInstance) {
         await new Promise(res => setTimeout(res, 1000));
         return "This is a mock AI response. Since the Gemini API key is not configured, I'm providing this placeholder answer. In a real scenario, I would answer your question based on the letter's content.";
     }
     
-    if (!chatInstance) {
-        throw new Error("Chat not initialized. Call startChat first.");
-    }
-
+    // FIX: The sendMessage method expects an object with a 'message' property.
     const response = await chatInstance.sendMessage({ message });
     return response.text;
 };

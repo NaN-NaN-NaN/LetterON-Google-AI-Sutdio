@@ -37,31 +37,47 @@ const LetterCard: React.FC<LetterCardProps> = ({ letter }) => {
         });
     };
     
+    const deadlineDate = letter.ai_suggestion_action_deadline_date ? new Date(letter.ai_suggestion_action_deadline_date) : null;
+    const isDeadlineValid = deadlineDate && !isNaN(deadlineDate.getTime());
+
     return (
         <div 
             onClick={() => navigate(`/letter/${letter.id}`)}
             className="bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow cursor-pointer border border-transparent hover:border-primary-light"
         >
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div className="flex-grow">
-                    <div className="flex items-center gap-2 mb-1">
-                        <StatusDot status={letter.action_status} />
-                        <h2 className="text-lg font-bold text-slate-800 truncate" title={letter.title}>{letter.title}</h2>
-                    </div>
-                    <p className="text-sm text-slate-600 ml-5">{letter.sender_info.name}</p>
+            <div className="flex justify-between items-start gap-4">
+                <div className="flex-grow min-w-0">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-800 truncate pr-4" title={letter.title}>{letter.title}</h2>
+                    <p className="text-xs sm:text-sm text-slate-600 truncate">{letter.sender_info.name}</p>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-2 line-clamp-2">{letter.ai_summary}</p>
                 </div>
                 <div className="flex items-center space-x-3 flex-shrink-0">
-                    <StarIcon filled={letter.starred} />
-                    <BellIcon active={letter.reminder_active} />
+                    {letter.starred && <StarIcon filled={true} />}
+                    {letter.reminder_active && <BellIcon active={true} />}
                 </div>
             </div>
             <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-x-4 gap-y-2">
-                 <span className="px-2 py-0.5 text-xs font-semibold text-primary-dark bg-primary-light rounded-full">
-                    {t(`category.${letter.category}`)}
-                </span>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-right">
-                    <span>{t('letter.sentOn')}: {formatDate(letter.sent_at)}</span>
-                    <span>{t('letter.uploadedOn')}: {formatDate(letter.created_at)}</span>
+                 <div className="flex items-center gap-2 flex-wrap">
+                    <StatusDot status={letter.action_status} />
+                    <span className="px-2 py-0.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-full">
+                        {t(`category.${letter.category}`)}
+                    </span>
+                    {isDeadlineValid && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 rounded-full px-2 py-0.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" />
+                            </svg>
+                            {formatDate(letter.ai_suggestion_action_deadline_date!)}
+                        </span>
+                    )}
+                </div>
+                <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center sm:gap-4 text-left sm:text-right w-full sm:w-auto mt-2 sm:mt-0 text-[11px] sm:text-xs">
+                    <div className="w-full sm:w-auto">
+                        <span className="font-semibold">{t('letter.sentOn')}:</span> {formatDate(letter.sent_at)}
+                    </div>
+                    <div className="w-full sm:w-auto">
+                        <span className="font-semibold">{t('letter.uploadedOn')}:</span> {formatDate(letter.created_at)}
+                    </div>
                 </div>
             </div>
         </div>

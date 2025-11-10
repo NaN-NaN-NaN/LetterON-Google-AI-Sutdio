@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -68,7 +67,7 @@ const Navbar: React.FC = () => {
             {/* User Account Menu */}
             {user && (
               <div className="relative" ref={accountMenuRef}>
-                <button onClick={() => setAccountMenuOpen(!isAccountMenuOpen)} className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-white font-bold text-lg">
+                <button onClick={() => setAccountMenuOpen(!isAccountMenuOpen)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-slate-600 font-bold text-lg">
                   {user.display_name.charAt(0).toUpperCase()}
                 </button>
                 {isAccountMenuOpen && (

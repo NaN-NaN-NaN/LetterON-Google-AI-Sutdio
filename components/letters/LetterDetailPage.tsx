@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getLetterById, updateLetter, deleteLetter as apiDeleteLetter } from '../../services/mockApi';
 import { translateLetterDetails } from '../../services/geminiService';
 import { Letter, SenderInfo } from '../../types';
 import { useI18n } from '../../hooks/useI18n';
-import { TOP_LANGUAGES } from '../../constants';
+import { TOP_LANGUAGES, CATEGORY_OPTIONS } from '../../constants';
 import Spinner from '../ui/Spinner';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -24,7 +24,7 @@ const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 const NoteIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002 2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
     </svg>
 );
 
@@ -42,6 +42,7 @@ const LetterDetailPage: React.FC = () => {
     const [isImageModalOpen, setImageModalOpen] = useState(false);
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isReminderModalOpen, setReminderModalOpen] = useState(false);
+    const [isRemoveReminderConfirmOpen, setRemoveReminderConfirmOpen] = useState(false);
     const [isOriginalTextModalOpen, setOriginalTextModalOpen] = useState(false);
     const [isTranslatedTextModalOpen, setTranslatedTextModalOpen] = useState(false);
     const [currentNote, setCurrentNote] = useState('');
@@ -67,6 +68,16 @@ const LetterDetailPage: React.FC = () => {
                 });
         }
     }, [id]);
+
+    useEffect(() => {
+        if (letter?.translations) {
+            const availableLangs = Object.keys(letter.translations);
+            if (availableLangs.length > 0 && !targetLang) {
+                setTargetLang(availableLangs[0]);
+            }
+        }
+    }, [letter, targetLang]);
+
 
     const handleUpdate = async (field: keyof Letter, value: any, noRerender = false) => {
         if (!letter) return;
@@ -122,6 +133,15 @@ const LetterDetailPage: React.FC = () => {
 
         setReminderModalOpen(false);
     };
+    
+    const handleRemoveReminder = async () => {
+        if (!letter) return;
+        await handleUpdate('reminder_active', false, true);
+        await handleUpdate('reminder_at', null);
+        setLetter(prev => prev ? { ...prev, reminder_active: false, reminder_at: null } : null);
+        setRemoveReminderConfirmOpen(false);
+    };
+
 
     const handleTranslate = async () => {
         if (!targetLang || !letter) return;
@@ -156,33 +176,44 @@ const LetterDetailPage: React.FC = () => {
     if (error || !letter) return <div className="text-center text-red-500">{error || 'Letter not found.'}</div>;
 
     return (
-        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg pb-28 md:pb-8">
+            <Link to="/" className="inline-block text-sm text-slate-500 hover:text-slate-700 hover:underline mb-4">{t('detail.backToList')}</Link>
             {/* Header */}
             <header className="pb-6 border-b border-slate-200">
                 <div className="flex justify-between items-start gap-4">
                     <div className="flex-grow">
-                        <span className="px-3 py-1 text-sm font-semibold text-primary-dark bg-primary-light rounded-full">{t(`category.${letter.category}`)}</span>
-                        <h1 className="text-3xl font-bold text-slate-900 mt-3">{letter.title}</h1>
+                        <select
+                            value={letter.category}
+                            onChange={(e) => handleUpdate('category', e.target.value)}
+                            className="bg-slate-100 text-slate-700 font-semibold text-sm rounded-full px-3 py-1 border-2 border-transparent focus:outline-none focus:border-primary focus:ring-primary transition-colors"
+                            aria-label="Letter category"
+                        >
+                            {CATEGORY_OPTIONS.map(cat => (
+                                <option key={cat} value={cat}>{t(`category.${cat}`)}</option>
+                            ))}
+                        </select>
+
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-3">{letter.title}</h1>
                          <div className="mt-4">
                              <SenderInfoBlock info={letter.sender_info} />
                          </div>
                     </div>
                     <div className="flex items-center space-x-4 flex-shrink-0">
                         <StarIcon filled={letter.starred} onClick={() => handleUpdate('starred', !letter.starred)} />
-                        <BellIcon active={letter.reminder_active} onClick={() => setReminderModalOpen(true)} className="h-6 w-6 cursor-pointer" />
+                        <BellIcon active={letter.reminder_active} onClick={() => letter.reminder_active ? setRemoveReminderConfirmOpen(true) : setReminderModalOpen(true)} className="h-6 w-6 cursor-pointer" />
                         <TrashIcon onClick={() => setDeleteConfirmOpen(true)} />
                     </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
                     {isDeadlineValid && (
-                         <span className="font-bold bg-red-100 text-red-800 rounded-md px-2 py-1">
+                         <span className="font-bold bg-red-100 text-red-800 rounded-md px-2 py-1 text-xs sm:text-sm">
                             {t('detail.deadline')}: {formatDate(letter.ai_suggestion_action_deadline_date!)}
                         </span>
                     )}
-                    <span className="font-medium bg-slate-100 rounded-md px-2 py-1">{t('letter.sentOn')}: {formatDate(letter.sent_at)}</span>
-                    <span className="font-medium bg-slate-100 rounded-md px-2 py-1">{t('letter.uploadedOn')}: {formatDate(letter.created_at)}</span>
+                    <span className="font-medium bg-slate-100 rounded-md px-2 py-1 text-xs sm:text-sm">{t('letter.sentOn')}: {formatDate(letter.sent_at)}</span>
+                    <span className="font-medium bg-slate-100 rounded-md px-2 py-1 text-xs sm:text-sm">{t('letter.uploadedOn')}: {formatDate(letter.created_at)}</span>
                     {letter.images && letter.images.length > 0 && (
-                         <button onClick={() => setImageModalOpen(true)} className="text-primary font-semibold">{t('detail.originalImages')}</button>
+                         <button onClick={() => setImageModalOpen(true)} className="text-primary font-semibold text-xs sm:text-sm">{t('detail.originalImages')}</button>
                     )}
                 </div>
                 <div className="mt-4">
@@ -219,8 +250,13 @@ const LetterDetailPage: React.FC = () => {
             </div>
 
             {/* Ask AI Button */}
-            <div className="mt-10 pt-6 border-t border-slate-200 text-center">
-                <Button variant="secondary" size="lg" onClick={() => navigate(`/letter/${id}/chat`)}>
+             <div className="mt-10 pt-6 border-t border-slate-200 text-center hidden md:block">
+                <Button variant="primary" size="lg" onClick={() => navigate(`/letter/${id}/chat`)}>
+                    {t('detail.askAI')}
+                </Button>
+            </div>
+             <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-sm border-t z-30">
+                <Button variant="primary" size="lg" onClick={() => navigate(`/letter/${id}/chat`)} className="w-full">
                     {t('detail.askAI')}
                 </Button>
             </div>
@@ -251,6 +287,13 @@ const LetterDetailPage: React.FC = () => {
                     <div className="pt-2 flex justify-end">
                         <Button onClick={handleSetReminder} disabled={!reminderDate}>{t('reminder.setButton')}</Button>
                     </div>
+                </div>
+            </Modal>
+            <Modal isOpen={isRemoveReminderConfirmOpen} onClose={() => setRemoveReminderConfirmOpen(false)} title="Remove Reminder">
+                <p>This will remove the reminder from the app. You will need to manually remove the event from your Google Calendar. Do you want to proceed?</p>
+                <div className="mt-6 flex justify-end gap-3">
+                    <Button variant="ghost" onClick={() => setRemoveReminderConfirmOpen(false)}>Cancel</Button>
+                    <Button variant="danger" onClick={handleRemoveReminder}>Remove</Button>
                 </div>
             </Modal>
              <Modal isOpen={isOriginalTextModalOpen} onClose={() => setOriginalTextModalOpen(false)} title={t('detail.originalContent')}>
@@ -334,6 +377,7 @@ const AnalysisSection: React.FC<{
                            <div className="space-y-2">
                                <h4 className="font-bold text-slate-800">Original</h4>
                                <div className="p-3 bg-slate-50 rounded-lg space-y-3 text-sm">
+                                    <button onClick={onShowOriginal} className="text-sm text-primary font-semibold hover:underline">{t('detail.showOriginalText')}</button>
                                    <InfoSection title={t('detail.summary')} content={letter.ai_summary} />
                                    <InfoSection title={t('detail.suggestion')} content={letter.ai_suggestion} />
                                </div>
@@ -368,20 +412,18 @@ const AnalysisSection: React.FC<{
 
 const InfoSection: React.FC<{ title: string; content: string; }> = ({ title, content }) => (
     <div>
-        <h3 className="text-md font-semibold text-slate-700">{title}</h3>
-        <p className="mt-1 text-slate-600 whitespace-pre-wrap">{content}</p>
+        <h3 className="text-base sm:text-md font-semibold text-slate-700">{title}</h3>
+        <p className="mt-1 text-sm text-slate-600 whitespace-pre-wrap">{content}</p>
     </div>
 );
 
 const SenderInfoBlock: React.FC<{ info: SenderInfo }> = ({ info }) => {
     return (
-        <div className="text-sm space-y-1 text-slate-600">
+        <div className="text-xs sm:text-sm space-y-1 text-slate-600">
             <p><strong>{info.name}</strong></p>
             {info.address && <p>{info.address}</p>}
-            <div className="flex gap-x-4">
-                {info.email && <p>{info.email}</p>}
-                {info.phone && <p>{info.phone}</p>}
-            </div>
+            {info.email && <p>{info.email}</p>}
+            {info.phone && <p>{info.phone}</p>}
         </div>
     )
 };

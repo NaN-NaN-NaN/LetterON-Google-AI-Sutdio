@@ -7,6 +7,7 @@ import { useI18n } from '../../hooks/useI18n';
 import { TOP_LANGUAGES } from '../../constants';
 import { analyzeLetterContent } from '../../services/geminiService';
 import { createLetter } from '../../services/mockApi';
+import { Letter } from '../../types';
 
 interface AddLetterModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
   const [step, setStep] = useState<UploadStep>('upload');
   const [newLetterId, setNewLetterId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState('');
+  const [analyzedResult, setAnalyzedResult] = useState<Partial<Letter> | null>(null);
 
 
   const { t } = useI18n();
@@ -60,6 +62,7 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
     
     try {
       const analyzedData = await analyzeLetterContent(images, translationLang || undefined);
+      setAnalyzedResult(analyzedData);
       const letterDataWithImages = { ...analyzedData, images: images };
       const newLetter = await createLetter(letterDataWithImages);
       setNewLetterId(newLetter.id);
@@ -79,6 +82,7 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
     setStep('upload');
     setNewLetterId(null);
     setUploadError('');
+    setAnalyzedResult(null);
     onClose();
   };
 
@@ -93,11 +97,21 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
         );
       case 'success':
         return (
-          <div className="text-center py-12">
+          <div className="text-center py-8">
             <h3 className="text-xl font-semibold text-green-600">{t('addLetter.success')}</h3>
+            {analyzedResult && (
+                <div className="mt-4 text-left p-4 bg-slate-50 rounded-lg border">
+                    <h4 className="font-bold text-slate-800">{analyzedResult.title}</h4>
+                    <p className="text-sm text-slate-600 mt-2 line-clamp-3">{analyzedResult.ai_summary}</p>
+                    <div className="mt-2 text-xs">
+                        <span className="font-semibold">{t('detail.category')}: </span>
+                        {analyzedResult.category ? t(`category.${analyzedResult.category}`) : 'N/A'}
+                    </div>
+                </div>
+            )}
             <div className="mt-6 flex justify-center gap-4">
               <Button onClick={resetAndClose}>{t('addLetter.backToHome')}</Button>
-              <Button variant="secondary" onClick={() => { resetAndClose(); navigate(`/letter/${newLetterId}`); }}>{t('addLetter.viewDetails')}</Button>
+              <Button variant="secondary" onClick={() => { if(newLetterId) navigate(`/letter/${newLetterId}`); resetAndClose(); }}>{t('addLetter.viewDetails')}</Button>
             </div>
           </div>
         );

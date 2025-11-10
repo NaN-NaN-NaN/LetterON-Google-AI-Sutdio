@@ -8,12 +8,14 @@ import Spinner from '../ui/Spinner';
 import AddLetterModal from './AddLetterModal';
 import { CATEGORY_OPTIONS } from '../../constants';
 import Chip from '../ui/Chip';
+import Modal from '../ui/Modal';
 
 const LetterListPage: React.FC = () => {
     const [letters, setLetters] = useState<Letter[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [isModalOpen, setModalOpen] = useState(false);
+    const [isAddModalOpen, setAddModalOpen] = useState(false);
+    const [isFilterModalOpen, setFilterModalOpen] = useState(false);
     const { t } = useI18n();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,8 +26,6 @@ const LetterListPage: React.FC = () => {
     const [filterSentEnd, setFilterSentEnd] = useState('');
     const [filterUploadedStart, setFilterUploadedStart] = useState('');
     const [filterUploadedEnd, setFilterUploadedEnd] = useState('');
-
-    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
     const fetchUserLetters = () => {
         setLoading(true);
@@ -94,72 +94,107 @@ const LetterListPage: React.FC = () => {
         return <div className="text-center text-red-500">{error}</div>;
     }
 
+    const AdvancedFilters = () => (
+        <div className="animate-fade-in-down">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {/* Column 1 */}
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700">Category</label>
+                        <select
+                            value={filterCategory}
+                            onChange={e => setFilterCategory(e.target.value as any)}
+                            className="mt-1 w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"
+                        >
+                            <option value="all">{t('letters.filter.allCategories')}</option>
+                            {CATEGORY_OPTIONS.map(cat => (
+                                <option key={cat} value={cat}>{t(`category.${cat}`)}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="space-y-2 pt-2">
+                        <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-md">
+                            <input type="checkbox" id="starred" checked={filterStarred} onChange={e => setFilterStarred(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                            <label htmlFor="starred" className="text-slate-700 font-medium">{t('letters.filter.starred')}</label>
+                        </div>
+                        <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-md">
+                            <input type="checkbox" id="reminder" checked={filterReminder} onChange={e => setFilterReminder(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                            <label htmlFor="reminder" className="text-slate-700 font-medium">{t('letters.filter.reminder')}</label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Column 2 */}
+                 <div className="space-y-4">
+                    <label className="block text-sm font-medium text-slate-700">Sent Date Range</label>
+                    <div>
+                        <label htmlFor="sent-from" className="text-xs text-slate-500">From</label>
+                        <input id="sent-from" type="date" value={filterSentStart} onChange={e => setFilterSentStart(e.target.value)} className="mt-1 w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
+                    </div>
+                    <div>
+                        <label htmlFor="sent-to" className="text-xs text-slate-500">To</label>
+                        <input id="sent-to" type="date" value={filterSentEnd} onChange={e => setFilterSentEnd(e.target.value)} className="mt-1 w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
+                    </div>
+                </div>
+
+                {/* Column 3 */}
+                <div className="space-y-4">
+                    <label className="block text-sm font-medium text-slate-700">Uploaded Date Range</label>
+                    <div>
+                        <label htmlFor="uploaded-from" className="text-xs text-slate-500">From</label>
+                        <input id="uploaded-from" type="date" value={filterUploadedStart} onChange={e => setFilterUploadedStart(e.target.value)} className="mt-1 w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
+                    </div>
+                    <div>
+                        <label htmlFor="uploaded-to" className="text-xs text-slate-500">To</label>
+                        <input id="uploaded-to" type="date" value={filterUploadedEnd} onChange={e => setFilterUploadedEnd(e.target.value)} className="mt-1 w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
+                    </div>
+                </div>
+            </div>
+             <div className="mt-6 flex justify-end">
+                <Button onClick={() => setFilterModalOpen(false)}>Apply Filters</Button>
+            </div>
+        </div>
+    );
+
+
     return (
-        <div>
+        <div className="pb-24 md:pb-0">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold text-slate-800">{t('letters.title')}</h1>
-                <Button onClick={() => setModalOpen(true)}>{t('letters.add')}</Button>
+                <div className="hidden md:block">
+                    <Button onClick={() => setAddModalOpen(true)}>{t('letters.add')}</Button>
+                </div>
             </div>
 
             {/* Filter Bar */}
             <div className="bg-white p-4 rounded-xl shadow-sm mb-6 space-y-4">
                 <div className="flex items-center gap-2">
-                    <input
-                        type="text"
-                        placeholder={t('letters.search')}
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="flex-grow w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"
-                    />
-                    <Button variant="ghost" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}>
+                     <div className="relative flex-grow">
+                        <input
+                            type="text"
+                            placeholder={t('letters.search')}
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 pr-10"
+                        />
+                        {searchTerm && (
+                            <button 
+                                onClick={() => setSearchTerm('')} 
+                                className="absolute inset-y-0 right-0 flex items-center pr-3"
+                                aria-label="Clear search"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400 hover:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                    <Button variant="ghost" onClick={() => setFilterModalOpen(true)}>
                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-600">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
                         </svg>
                     </Button>
                 </div>
-                
-                {showAdvancedFilters && (
-                    <div className="pt-4 border-t border-slate-200 animate-fade-in-down">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Column 1 */}
-                            <div className="space-y-4">
-                                <label className="block text-sm font-medium text-slate-700">Category</label>
-                                <select
-                                    value={filterCategory}
-                                    onChange={e => setFilterCategory(e.target.value as any)}
-                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"
-                                >
-                                    <option value="all">{t('letters.filter.allCategories')}</option>
-                                    {CATEGORY_OPTIONS.map(cat => (
-                                        <option key={cat} value={cat}>{t(`category.${cat}`)}</option>
-                                    ))}
-                                </select>
-                                <div className="flex items-center space-x-2 pt-2">
-                                    <input type="checkbox" id="starred" checked={filterStarred} onChange={e => setFilterStarred(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
-                                    <label htmlFor="starred" className="text-slate-700">{t('letters.filter.starred')}</label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <input type="checkbox" id="reminder" checked={filterReminder} onChange={e => setFilterReminder(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" />
-                                    <label htmlFor="reminder" className="text-slate-700">{t('letters.filter.reminder')}</label>
-                                </div>
-                            </div>
-
-                            {/* Column 2 */}
-                             <div className="space-y-4">
-                                <label className="block text-sm font-medium text-slate-700">Sent Date Range</label>
-                                <input type="date" value={filterSentStart} onChange={e => setFilterSentStart(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
-                                <input type="date" value={filterSentEnd} onChange={e => setFilterSentEnd(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
-                            </div>
-
-                            {/* Column 3 */}
-                            <div className="space-y-4">
-                                <label className="block text-sm font-medium text-slate-700">Uploaded Date Range</label>
-                                <input type="date" value={filterUploadedStart} onChange={e => setFilterUploadedStart(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
-                                <input type="date" value={filterUploadedEnd} onChange={e => setFilterUploadedEnd(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900"/>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 <div className="flex flex-wrap gap-2 pt-2">
                     {filterCategory !== 'all' && (
@@ -200,11 +235,20 @@ const LetterListPage: React.FC = () => {
                 )}
             </div>
 
+            {/* Mobile "Add Letter" Button */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-sm border-t z-30">
+                <Button onClick={() => setAddModalOpen(true)} className="w-full" size="lg">{t('letters.add')}</Button>
+            </div>
+
             <AddLetterModal 
-                isOpen={isModalOpen}
-                onClose={() => setModalOpen(false)}
+                isOpen={isAddModalOpen}
+                onClose={() => setAddModalOpen(false)}
                 onLetterAdded={fetchUserLetters}
             />
+
+            <Modal isOpen={isFilterModalOpen} onClose={() => setFilterModalOpen(false)} title="Advanced Filters">
+                <AdvancedFilters />
+            </Modal>
         </div>
     );
 };

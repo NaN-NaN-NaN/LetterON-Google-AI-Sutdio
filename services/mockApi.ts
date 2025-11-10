@@ -1,29 +1,7 @@
+
 import { User, Letter, ChatMessage, LetterCategory, ActionStatus } from '../types';
 
-// --- Mock Database (using localStorage) ---
-
-const DB = {
-  users: 'letteron_users',
-  letters: 'letteron_letters',
-  chats: 'letteron_chats',
-};
-
-const initializeDB = () => {
-  if (!localStorage.getItem(DB.users)) {
-    localStorage.setItem(DB.users, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(DB.letters)) {
-    localStorage.setItem(DB.letters, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(DB.chats)) {
-    localStorage.setItem(DB.chats, JSON.stringify([]));
-  }
-};
-
-initializeDB();
-
 // --- Helper Functions ---
-
 const read = <T,>(key: string): T[] => JSON.parse(localStorage.getItem(key) || '[]');
 const write = <T,>(key: string, data: T[]) => localStorage.setItem(key, JSON.stringify(data));
 const uuid = () => crypto.randomUUID();
@@ -100,8 +78,8 @@ Yours sincerely,
                 sender_info: { name: "National Bank", address: "1 Government Plaza", phone: "555-0102", email: "info@taxoffice.gov" },
                 starred: false,
                 reminder_active: false,
-                ai_summary: "Confirmation that the 2024 tax return has been successfully filed. No action is needed.",
-                ai_suggestion: "File this document for your records.",
+                ai_summary: "A reminder for an outstanding payment that needs to be settled to avoid service interruptions.",
+                ai_suggestion: "Settle the outstanding amount by the specified deadline using the provided bank details.",
                 ai_suggestion_action_deadline_date: null,
                 action_status: ActionStatus.WAIT_FOR_ACTION,
                 sent_at: "2025-09-05T10:00:00Z",
@@ -125,6 +103,53 @@ Yours sincerely,
     }
 };
 
+// --- Mock Database (using localStorage) ---
+
+const DB = {
+  users: 'letteron_users',
+  letters: 'letteron_letters',
+  chats: 'letteron_chats',
+};
+
+const initializeDemoUser = () => {
+    let users = read<User>(DB.users);
+    let demoUser = users.find(u => u.email === 'demo@demo.com');
+
+    if (!demoUser) {
+        demoUser = {
+            id: uuid(),
+            email: 'demo@demo.com',
+            display_name: 'demo',
+            role: 'user',
+            created_at: new Date().toISOString(),
+        };
+        write(DB.users, [...users, demoUser]);
+    }
+
+    const letters = read<Letter>(DB.letters);
+    const demoLettersExist = letters.some(l => l.user_id === demoUser!.id);
+
+    if (!demoLettersExist) {
+        addSampleData(demoUser.id);
+    }
+};
+
+
+const initializeDB = () => {
+  if (!localStorage.getItem(DB.users)) {
+    localStorage.setItem(DB.users, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(DB.letters)) {
+    localStorage.setItem(DB.letters, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(DB.chats)) {
+    localStorage.setItem(DB.chats, JSON.stringify([]));
+  }
+  initializeDemoUser();
+};
+
+initializeDB();
+
 
 // --- Auth API ---
 
@@ -142,7 +167,6 @@ export const mockRegister = async (email: string, pass: string, name: string): P
     created_at: new Date().toISOString(),
   };
   write(DB.users, [...users, newUser]);
-  addSampleData(newUser.id); // Add sample data for new user
   return newUser;
 };
 
@@ -211,7 +235,7 @@ export const createLetter = async (data: Partial<Letter>): Promise<Letter> => {
         deleted_at: null,
         images: data.images || [],
         reminder_at: null,
-        translations: {},
+        translations: data.translations || {},
     };
     const letters = read<Letter>(DB.letters);
     write(DB.letters, [...letters, newLetter]);
