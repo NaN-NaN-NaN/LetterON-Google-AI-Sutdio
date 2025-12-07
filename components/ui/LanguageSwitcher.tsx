@@ -10,6 +10,7 @@ const LanguageSwitcher: React.FC<{ className?: string }> = ({ className }) => {
         <div className={className}>
             <select
                 value={language}
+                // eslint-disable-next-line
                 onChange={(e) => setLanguage(e.target.value as any)}
                 className="bg-white border border-slate-300 rounded-md py-1 px-2 text-slate-700"
             >

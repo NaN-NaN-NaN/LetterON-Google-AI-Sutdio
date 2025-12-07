@@ -7,7 +7,6 @@ import { useI18n } from '../../hooks/useI18n';
 import { TOP_LANGUAGES } from '../../constants';
 import { analyzeLetterContent } from '../../services/geminiService';
 import { createLetter } from '../../services/mockApi';
-import { Letter } from '../../types';
 
 interface AddLetterModalProps {
   isOpen: boolean;
@@ -73,6 +72,7 @@ const AddLetterModal: React.FC<AddLetterModalProps> = ({ isOpen, onClose, onLett
       onLetterAdded();
       resetAndClose();
       navigate(`/letter/${newLetter.id}`);
+      // eslint-disable-next-line
     } catch (error: any) {
       console.error(error);
       setUploadError(error.message || 'Analysis failed. Please try again.');

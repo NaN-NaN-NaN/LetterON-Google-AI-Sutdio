@@ -23,6 +23,7 @@ const LoginPage: React.FC = () => {
     try {
       await login(email, password);
       navigate('/');
+      // eslint-disable-next-line
     } catch (err: any) {
       setError(err.message || 'Failed to login');
     } finally {

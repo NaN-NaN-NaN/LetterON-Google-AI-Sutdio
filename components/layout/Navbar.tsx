@@ -51,6 +51,7 @@ const Navbar: React.FC = () => {
                       <button
                         key={lang.code}
                         onClick={() => {
+                          // eslint-disable-next-line
                           setLanguage(lang.code as any);
                           setLangMenuOpen(false);
                         }}

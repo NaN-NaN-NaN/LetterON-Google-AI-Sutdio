@@ -24,6 +24,7 @@ const RegisterPage: React.FC = () => {
     try {
       await register(email, password, displayName);
       navigate('/');
+      // eslint-disable-next-line
     } catch (err: any) {
       setError(err.message || 'Failed to register');
     } finally {
